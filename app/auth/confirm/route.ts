@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 // Target for Supabase email templates that link with {{ .TokenHash }} (invitations, recovery).
+// e.g. {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/admin/password
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const tokenHash = searchParams.get("token_hash");
@@ -14,5 +15,5 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
     if (!error) return NextResponse.redirect(new URL(next, request.url));
   }
-  return NextResponse.redirect(new URL("/admin/password", request.url));
+  return NextResponse.redirect(new URL("/admin/password?error=invalid_link", request.url));
 }

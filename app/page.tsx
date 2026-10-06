@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { AtSign, Clock3, MapPin } from "lucide-react";
 import { readMenu } from "@/lib/menu-store";
+import { AuthRedirect } from "./auth-redirect";
 import { MenuCatalog } from "./menu-catalog";
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function Home() {
           <div className="hero-photo"><Image src="/images/catu-1.webp" alt="Torta artesanal de Catú con frutos rojos" fill priority sizes="(max-width: 768px) 100vw, 45vw" /></div>
         </div>
       </header>
+      <AuthRedirect />
       <MenuCatalog categories={menu.categories} />
       <footer className="bg-[var(--green)] px-5 py-10 text-[#283116] sm:px-10">
         <div className="mx-auto flex max-w-6xl flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">

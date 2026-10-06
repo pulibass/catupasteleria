@@ -16,6 +16,12 @@ Carta pública y panel privado (`/admin`) construidos con Next.js 16, Supabase (
    - **Redirect URLs**: agregar `https://<tu-dominio>/admin/password` (y `http://localhost:3000/admin/password` para desarrollo).
 5. Opcional: para que la invitación funcione aunque el correo se abra en otro navegador, cambiar la plantilla **Invite user** para que el enlace sea
    `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/admin/password`.
+   Lo mismo para la plantilla **Reset password**:
+   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/admin/password`.
+
+### Recuperar contraseña
+
+En `/admin/login`, “Olvidé mi contraseña” envía un correo con `resetPasswordForEmail` y redirige a `/admin/password`, que acepta enlaces con tokens en el fragmento (`#access_token=…`), con código PKCE (`?code=…`, abrir en el mismo navegador donde se pidió) o vía `/auth/confirm` con `token_hash`. Para que funcione, la Redirect URL `https://<tu-dominio>/admin/password` tiene que estar permitida en Supabase; si no, Supabase manda al usuario a la Site URL y la página principal lo reenvía a `/admin/password`.
 
 ## Variables de entorno
 
