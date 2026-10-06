@@ -32,10 +32,11 @@ on public.site_content for select
 to anon, authenticated
 using (id = 'menu');
 
--- Bucket público para fotos de productos: JPG, PNG y WebP de hasta 6 MB.
+-- Bucket público para fotos de productos: JPG, PNG y WebP de hasta 4 MB
+-- (las subidas pasan por una Vercel Function, cuyo body máximo es 4,5 MB).
 -- Sin políticas de escritura en storage.objects: solo el servidor (service role) sube archivos.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('product-images', 'product-images', true, 6291456, array['image/jpeg','image/png','image/webp'])
+values ('product-images', 'product-images', true, 4194304, array['image/jpeg','image/png','image/webp'])
 on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,

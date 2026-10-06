@@ -11,7 +11,8 @@ export async function POST(request: Request) {
   if (!(file instanceof File)) return Response.json({ error: "Elegí una imagen." }, { status: 400 });
   const extension = allowed.get(file.type);
   if (!extension) return Response.json({ error: "Usá una imagen JPG, PNG o WebP." }, { status: 400 });
-  if (file.size > 6 * 1024 * 1024) return Response.json({ error: "La imagen no puede superar 6 MB." }, { status: 400 });
+  // Vercel Functions cap request bodies at 4.5 MB, so the app limit stays below it.
+  if (file.size > 4 * 1024 * 1024) return Response.json({ error: "La imagen no puede superar 4 MB." }, { status: 400 });
   const path = `products/product-${crypto.randomUUID()}.${extension}`;
   const supabase = createAdminClient();
   const { error } = await supabase.storage.from("product-images").upload(path, file, { contentType: file.type, cacheControl: "31536000", upsert: false });

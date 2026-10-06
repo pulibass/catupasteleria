@@ -8,7 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { MenuData } from "@/lib/menu-data";
 
-type Session = { role: "owner" | "editor"; admins: { email: string; role: string }[] };
+// Vercel Functions accept request bodies up to 4.5 MB; keep headroom for the multipart envelope.
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+
+type Session ={ role: "owner" | "editor"; admins: { email: string; role: string }[] };
 type ModelTool = { name: string; title?: string; description: string; inputSchema: object; annotations?: object; execute: (input: unknown) => unknown | Promise<unknown> };
 declare global { interface Document { modelContext?: { registerTool: (tool: ModelTool, options?: { signal?: AbortSignal }) => void | Promise<void> } } }
 
@@ -90,8 +93,10 @@ export function AdminEditor({ signedInEmail }: { signedInEmail: string }) {
   });
 
   const uploadPhoto = async (file: File) => {
+    if (file.size > MAX_PHOTO_BYTES) throw new Error("La foto no puede superar 4 MB. Reducila o exportala en WebP o JPG.");
     const form = new FormData(); form.append("image", file);
     const response = await fetch("/api/upload", { method: "POST", body: form });
+    if (response.status === 413) throw new Error("La foto no puede superar 4 MB.");
     const json = await response.json() as { url?: string; error?: string };
     if (!response.ok || !json.url) throw new Error(json.error ?? "No se pudo subir la imagen.");
     return json.url;
@@ -181,7 +186,7 @@ export function AdminEditor({ signedInEmail }: { signedInEmail: string }) {
           <label className="field-label">Nombre<Input value={newProduct.name} onChange={event => setNewProduct(current => ({ ...current, name: event.target.value }))} placeholder="Ej. Jugo verde" /></label>
           <label className="field-label">Descripción<Input value={newProduct.description} onChange={event => setNewProduct(current => ({ ...current, description: event.target.value }))} placeholder="Ingredientes o detalle" /></label>
           <label className="field-label">Precio en pesos<Input type="number" min="0" step="100" value={newProduct.price} onChange={event => setNewProduct(current => ({ ...current, price: event.target.value }))} placeholder="6500" /></label>
-          <label className="field-label">Foto del producto<Input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => setNewPhoto(event.target.files?.[0] ?? null)} /></label>
+          <label className="field-label">Foto del producto (JPG, PNG o WebP, hasta 4 MB)<Input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => setNewPhoto(event.target.files?.[0] ?? null)} /></label>
         </div>
         <Button className="mt-6" onClick={() => void addProduct()} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : <Plus />} Agregar a la carta</Button>
       </section></TabsContent>
