@@ -92,21 +92,21 @@ export function AdminEditor({ signedInEmail }: { signedInEmail: string }) {
   const uploadPhoto = async (file: File) => {
     const form = new FormData(); form.append("image", file);
     const response = await fetch("/api/upload", { method: "POST", body: form });
-    const json = await response.json() as { key?: string; error?: string };
-    if (!response.ok || !json.key) throw new Error(json.error ?? "No se pudo subir la imagen.");
-    return json.key;
+    const json = await response.json() as { url?: string; error?: string };
+    if (!response.ok || !json.url) throw new Error(json.error ?? "No se pudo subir la imagen.");
+    return json.url;
   };
 
   const setItemPhoto = async (categoryIndex: number, itemIndex: number, file?: File) => {
-    if (!file) return;
+    if (!file || !menu) return;
     const entryId = menu.categories[categoryIndex].items[itemIndex].id;
     setUploadingId(entryId); setStatus(null);
     try {
-      const imageKey = await uploadPhoto(file);
+      const imageUrl = await uploadPhoto(file);
       setMenu(current => {
         if (!current) return current;
         const next = structuredClone(current); const entry = next.categories[categoryIndex].items[itemIndex];
-        entry.imageKey = imageKey; delete entry.imageUrl; return next;
+        entry.imageUrl = imageUrl; delete entry.imageKey; return next;
       });
       setStatus({ type: "ok", text: "Foto cargada. Guardá los cambios para publicarla en la carta." });
     } catch (error) { setStatus({ type: "error", text: error instanceof Error ? error.message : "No se pudo subir la foto." }); }
@@ -114,19 +114,21 @@ export function AdminEditor({ signedInEmail }: { signedInEmail: string }) {
   };
 
   const addProduct = async () => {
+    if (!menu) return;
     if (!newProduct.name.trim() || !Number(newProduct.price)) { setStatus({ type: "error", text: "Completá el nombre y un precio mayor a cero." }); return; }
     setSaving(true); setStatus(null);
     try {
-      const imageKey = newPhoto ? await uploadPhoto(newPhoto) : undefined;
+      const imageUrl = newPhoto ? await uploadPhoto(newPhoto) : undefined;
       const next = structuredClone(menu); const category = next.categories.find(entry => entry.id === newProduct.categoryId);
       if (!category) throw new Error("Elegí una categoría válida.");
-      category.items.push({ id: `${newProduct.categoryId}-${crypto.randomUUID()}`, name: newProduct.name.trim(), description: newProduct.description.trim() || undefined, price: Math.round(Number(newProduct.price)), ...(imageKey ? { imageKey } : {}) });
+      category.items.push({ id: `${newProduct.categoryId}-${crypto.randomUUID()}`, name: newProduct.name.trim(), description: newProduct.description.trim() || undefined, price: Math.round(Number(newProduct.price)), ...(imageUrl ? { imageUrl } : {}) });
       await save(next); setNewProduct(current => ({ ...current, name: "", description: "", price: "" })); setNewPhoto(null);
     } catch (error) { setStatus({ type: "error", text: error instanceof Error ? error.message : "No se pudo crear el producto." }); }
     finally { setSaving(false); }
   };
 
   const addCategory = async () => {
+    if (!menu) return;
     const name = newCategory.name.trim();
     if (!name) { setStatus({ type: "error", text: "Escribí el nombre de la nueva categoría." }); return; }
     const baseId = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "categoria";
@@ -148,7 +150,7 @@ export function AdminEditor({ signedInEmail }: { signedInEmail: string }) {
       const json = await response.json() as { error?: string; admins?: Session["admins"] };
       if (!response.ok) throw new Error(json.error ?? "No se pudo sumar el editor.");
       setSession(current => current ? { ...current, admins: json.admins ?? current.admins } : current); setTeamEmail("");
-      setStatus({ type: "ok", text: "Editor autorizado." });
+      setStatus({ type: "ok", text: "Invitación enviada. El empleado recibirá un correo para crear su contraseña." });
     } catch (error) { setStatus({ type: "error", text: error instanceof Error ? error.message : "No se pudo sumar el editor." }); }
   };
 
@@ -200,7 +202,7 @@ export function AdminEditor({ signedInEmail }: { signedInEmail: string }) {
         <label className="field-label">Instagram<Input value={menu.business.instagram} onChange={e => setBusiness("instagram", e.target.value.replace(/^@/, ""))} /></label>
       </div></section></TabsContent>
       {session.role === "owner" && <TabsContent value="team"><section className="admin-card">
-        <h2 className="text-xl font-black">Personas autorizadas</h2><p className="mt-1 text-sm text-muted-foreground">Sumá el email con el que cada empleado inicia sesión en ChatGPT.</p>
+        <h2 className="text-xl font-black">Personas autorizadas</h2><p className="mt-1 text-sm text-muted-foreground">Cada empleado recibe una invitación de Supabase para crear su propia contraseña.</p>
         <div className="mt-5 flex gap-2"><Input type="email" placeholder="empleado@ejemplo.com" value={teamEmail} onChange={e => setTeamEmail(e.target.value)} /><Button onClick={() => void addEditor()} disabled={!teamEmail}><UserPlus /> Sumar</Button></div>
         <div className="mt-5 divide-y">{session.admins.map(admin => <div key={admin.email} className="flex items-center justify-between gap-3 py-3"><span className="font-semibold">{admin.email}</span><span className="rounded-full bg-muted px-3 py-1 text-xs font-bold">{admin.role === "owner" ? "Propietario" : "Editor"}</span></div>)}</div>
       </section></TabsContent>}

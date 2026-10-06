@@ -1,33 +1,47 @@
-import { getD1 } from "@/db";
+import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { defaultMenu, isMenuData, type MenuData } from "@/lib/menu-data";
 
+export type AdminRole = "owner" | "editor";
+export type AdminRecord = { userId: string; email: string; role: AdminRole };
+
+function configured() { return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY); }
+
 export async function readMenu(): Promise<MenuData> {
+  if (!configured()) return defaultMenu;
   try {
-    const row = await getD1().prepare("SELECT data FROM menu_content WHERE id = ?").bind(1).first<{ data: string }>();
-    if (!row?.data) return defaultMenu;
-    const parsed: unknown = JSON.parse(row.data);
-    return isMenuData(parsed) ? parsed : defaultMenu;
+    const { data, error } = await createAdminClient().from("site_content").select("data").eq("id", "menu").maybeSingle();
+    if (error || !isMenuData(data?.data)) return defaultMenu;
+    return data.data;
   } catch { return defaultMenu; }
 }
 
-export async function saveMenu(menu: MenuData, email: string) {
-  const now = new Date().toISOString();
-  await getD1().prepare(`INSERT INTO menu_content (id, data, updated_at, updated_by) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, updated_by = excluded.updated_by`).bind(1, JSON.stringify(menu), now, email).run();
-  return now;
+export async function saveMenu(menu: MenuData, userId: string) {
+  const updatedAt = new Date().toISOString();
+  const { error } = await createAdminClient().from("site_content").upsert({ id: "menu", data: menu, updated_at: updatedAt, updated_by: userId });
+  if (error) throw new Error(error.message);
+  return updatedAt;
 }
 
-export async function getAdmin(email: string) {
-  return getD1().prepare("SELECT email, role FROM admins WHERE lower(email) = lower(?)").bind(email).first<{ email: string; role: "owner" | "editor" }>();
+export async function getAdmin(userId: string) {
+  const { data } = await createAdminClient().from("admins").select("user_id,email,role").eq("user_id", userId).maybeSingle();
+  return data ? { userId: data.user_id, email: data.email, role: data.role as AdminRole } : null;
 }
 
-export async function ensureFirstOwner(email: string) {
-  const db = getD1();
-  const count = await db.prepare("SELECT COUNT(*) AS count FROM admins").first<{ count: number }>();
-  if (Number(count?.count ?? 0) === 0) await db.prepare("INSERT OR IGNORE INTO admins (email, role, created_at) VALUES (?, 'owner', ?)").bind(email.toLowerCase(), new Date().toISOString()).run();
-  return getAdmin(email);
+export async function ensureOwner(userId: string, email: string) {
+  const current = await getAdmin(userId);
+  if (current) return current;
+  const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
+  if (!ownerEmail || email.toLowerCase() !== ownerEmail) return null;
+  const { count } = await createAdminClient().from("admins").select("user_id", { count: "exact", head: true });
+  if ((count ?? 0) > 0) return null;
+  const { error } = await createAdminClient().from("admins").insert({ user_id: userId, email: email.toLowerCase(), role: "owner" });
+  if (error) throw new Error(error.message);
+  return getAdmin(userId);
 }
 
 export async function listAdmins() {
-  const result = await getD1().prepare("SELECT email, role, created_at AS createdAt FROM admins ORDER BY role DESC, email").all<{ email: string; role: "owner" | "editor"; createdAt: string }>();
-  return result.results;
+  const { data, error } = await createAdminClient().from("admins").select("user_id,email,role").order("role", { ascending: false }).order("email");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(row => ({ userId: row.user_id, email: row.email, role: row.role as AdminRole }));
 }

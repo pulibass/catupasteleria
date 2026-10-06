@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { MenuCategory, MenuItem } from "@/lib/menu-data";
 
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
-const imageFor = (entry: MenuItem) => entry.imageUrl ?? (entry.imageKey ? `/api/images/${encodeURIComponent(entry.imageKey)}` : null);
+const imageFor = (entry: MenuItem) => entry.imageUrl ?? (entry.imageKey?.startsWith("http") ? entry.imageKey : null);
 
 export function MenuCatalog({ categories }: { categories: MenuCategory[] }) {
   const [selected, setSelected] = useState<MenuItem | null>(null);

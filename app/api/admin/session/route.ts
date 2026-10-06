@@ -1,10 +1,8 @@
-import { getChatGPTUser } from "@/app/chatgpt-auth";
-import { ensureFirstOwner, listAdmins } from "@/lib/menu-store";
+import { getAuthenticatedAdmin } from "@/lib/admin-auth";
+import { listAdmins } from "@/lib/menu-store";
 
 export async function GET() {
-  const user = await getChatGPTUser();
+  const user = await getAuthenticatedAdmin();
   if (!user) return Response.json({ error: "Sesión requerida" }, { status: 401 });
-  const admin = await ensureFirstOwner(user.email);
-  if (!admin) return Response.json({ error: "Tu cuenta no está autorizada para editar." }, { status: 403 });
-  return Response.json({ user: { email: user.email, name: user.displayName }, role: admin.role, admins: admin.role === "owner" ? await listAdmins() : [] });
+  return Response.json({ user: { email: user.email }, role: user.role, admins: user.role === "owner" ? await listAdmins() : [] });
 }
